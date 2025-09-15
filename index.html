@@ -330,6 +330,66 @@
             font-weight: bold;
         }
 
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .code-block {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        body.dark-mode .modal-content {
+            background-color: #333;
+            color: #e6e6e6;
+        }
+
+        body.dark-mode .code-block {
+            background-color: #222;
+            border-color: #444;
+        }
+
         @media (max-width: 768px) {
             header h1 { font-size: 2.5em; }
             .tabs { flex-direction: column; }
@@ -438,7 +498,17 @@
                 <tbody></tbody>
             </table>
             <button id="exportBtn" class="btn" style="margin-top: 20px;">Export to CSV</button>
+            <button id="getCodeBtn" class="btn" style="margin-top: 20px;">Get Code</button>
         </div>
+    </div>
+
+    <div id="codeModal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>Generated Leaderboard Code</h2>
+        <pre id="leaderboardCode" class="code-block"></pre>
+        <button id="copyCodeBtn" class="btn" style="margin-top: 15px;">Copy to Clipboard</button>
+      </div>
     </div>
 
     <script>
@@ -594,12 +664,13 @@
             const name = document.getElementById('searchName').value.toLowerCase();
             const symbol = document.getElementById('searchSymbol').value.toLowerCase();
             const rankFilter = document.getElementById('rankFilter').value;
-            let filtered = students.filter(s => 
+            let filtered = students.filter(s =>
                 (!name || s.name.toLowerCase().includes(name)) &&
                 (!symbol || s.symbol.toLowerCase().includes(symbol))
             );
-            if (rankFilter === 'top10') filtered = filtered.slice(0, 10);
-            else if (rankFilter === 'top50') filtered = filtered.slice(0, 50);
+            const sorted = [...filtered].sort((a, b) => b.totalScore - a.totalScore || a.name.localeCompare(b.name));
+            if (rankFilter === 'top10') filtered = sorted.slice(0, 10);
+            else if (rankFilter === 'top50') filtered = sorted.slice(0, 50);
             renderLeaderboard(filtered);
         }
 
@@ -617,6 +688,31 @@
             a.download = 'leaderboard.csv';
             a.click();
             window.URL.revokeObjectURL(url);
+        }
+        
+        function generateLeaderboardCode() {
+            const sorted = [...students].sort((a, b) => b.totalScore - a.totalScore || a.name.localeCompare(b.name));
+            let code = '';
+            sorted.forEach((student, index) => {
+                const rankText = index < 3 ? `${index + 1} ${['🏆', '🥈', '🥉'][index]}` : `${index + 1}`;
+                code += `\n<tr data-symbol="${student.symbol}"><td>${rankText}</td><td>${student.name}</td><td>${student.symbol}</td><td>${student.totalScore}</td></tr>`;
+            });
+            return code;
+        }
+
+        function showCodeModal() {
+            const code = generateLeaderboardCode();
+            document.getElementById('leaderboardCode').textContent = code;
+            document.getElementById('codeModal').style.display = 'block';
+        }
+
+        function copyCode() {
+            const code = document.getElementById('leaderboardCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Code copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
         }
 
         // Event Listeners
@@ -665,6 +761,22 @@
 
             // Export CSV
             document.getElementById('exportBtn').addEventListener('click', exportCSV);
+            
+            // Get Code Button
+            document.getElementById('getCodeBtn').addEventListener('click', showCodeModal);
+
+            // Copy Code Button
+            document.getElementById('copyCodeBtn').addEventListener('click', copyCode);
+
+            // Close Modal
+            document.querySelector('.close-btn').addEventListener('click', () => {
+                document.getElementById('codeModal').style.display = 'none';
+            });
+            window.addEventListener('click', (event) => {
+                if (event.target == document.getElementById('codeModal')) {
+                    document.getElementById('codeModal').style.display = 'none';
+                }
+            });
         }
 
         // Dark Mode
